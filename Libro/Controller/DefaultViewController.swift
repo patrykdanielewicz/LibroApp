@@ -42,6 +42,9 @@ class DefaultViewController: UIViewController {
         super.viewDidLoad()
         let tabGesture = UITapGestureRecognizer(target: self, action: #selector(tapOnScreen))
         
+        
+        
+        
         view.addGestureRecognizer(tabGesture)
         view.backgroundColor                             = UIColor.systemBackground
         view.keyboardLayoutGuide.followsUndockedKeyboard = true
@@ -49,9 +52,9 @@ class DefaultViewController: UIViewController {
         navigationController?.isNavigationBarHidden      = false
         title                                            = constantValuesAndNames.getStoreName(formStoreIndentifier: storeIndentifier)
         navigationController?.navigationBar.tintColor    = ConstantValuesAndNames.secondColor
-
+        
         navigationItem.rightBarButtonItem                = addNewOrderButton
-         
+        
         NotificationCenter.default.addObserver(self, selector: #selector(ifKeyboardOnScreen), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(ifKeyboardOnScreen), name: UIResponder.keyboardWillHideNotification, object: nil)
         
@@ -60,30 +63,42 @@ class DefaultViewController: UIViewController {
         cameraButton.addTarget(self, action: #selector(cameraButtonTapped), for: .touchUpInside)
         
         firebaseCloudLogic.retrivingDataFromCloud(storeIndentifier: storeIndentifier, orderStatus: orderStatus) { documentID, isOrderAdded in
-                DispatchQueue.main.async { [weak self] in
-                    if isOrderAdded {
-                        if FirebaseCloudLogic.docID.contains(documentID) {
-                            if let row = FirebaseCloudLogic.docID.firstIndex(of: documentID) {
-                                let indexPath = IndexPath(row: row, section: 0)
-                                self?.orderTableView.reloadRows(at: [indexPath], with: .automatic)
-                            }
+            DispatchQueue.main.async { [weak self] in
+                if FirebaseCloudLogic.orderAray == [] {
+                    self?.firebaseCloudLogic.loadOrders()
+                    self?.orderTableView.reloadData()
+                }
+                
+                if isOrderAdded {
+                    self?.firebaseCloudLogic.loadOrders()
+                    if FirebaseCloudLogic.docID.contains(documentID) {
+                        if let index = FirebaseCloudLogic.orderAray.firstIndex(where: { order in
+                            order.docID == documentID
+                        }) {
+                            let indexPath = IndexPath(row: index, section: 0)
+                            self?.orderTableView.reloadRows(at: [indexPath], with: .automatic)
+                            
                         }
                         else {
                             FirebaseCloudLogic.docID.append(documentID)
-                            if let row = FirebaseCloudLogic.docID.firstIndex(of: documentID) {
-                                let indexPath = IndexPath(row: row, section: 0)
+                            if let index = FirebaseCloudLogic.orderAray.firstIndex(where: { order in
+                                order.docID == documentID
+                            }) {
+                                let indexPath = IndexPath(row: index, section: 0)
+                                self?.firebaseCloudLogic.loadOrders()
                                 self?.orderTableView.insertRows(at: [indexPath], with: .automatic)
                             }
                         }
-                    }
+                    } }
                     else {
-//                        self?.orderTableView.deleteRows(at: [indexPath], with: .automatic)
+                        //                        self?.orderTableView.deleteRows(at: [indexPath], with: .automatic)
                     }
-                }
+               
+                
+            }
             
         }
     }
-    
     func configOrderInputSV() {
         orderImputSV.translatesAutoresizingMaskIntoConstraints = false
         orderImputSV.axis                                      = .horizontal
@@ -205,7 +220,7 @@ extension DefaultViewController: UITableViewDataSource, UITableViewDelegate, Ord
         if let rowFromIndexPath = orderTableView.indexPath(for: cell)?.row {
             let docIDBeingModified = FirebaseCloudLogic.docID[rowFromIndexPath]
             if let text = text {
-                FirebaseCloudLogic.dataCache.setObject(text as NSString, forKey: docIDBeingModified as NSString)
+//                FirebaseCloudLogic.dataCache.setObject(text as NSString, forKey: docIDBeingModified as NSString)
                     Task {
                         do {
                             try await firebaseCloudLogic.sendTextToCloud(text: text, storeIndentifier: storeIndentifier, orderStatus: orderStatus, DocIDBeingModified: docIDBeingModified)
@@ -271,7 +286,7 @@ extension DefaultViewController: UITableViewDataSource, UITableViewDelegate, Ord
             }
             else {
                 FirebaseCloudLogic.docID.remove(at: indexPath.row)
-                FirebaseCloudLogic.dataCache.removeObject(forKey: docIDname as NSString)
+//                FirebaseCloudLogic.dataCache.removeObject(forKey: docIDname as NSString)
                 orderTableView.beginUpdates()
                 orderTableView.deleteRows(at: [indexPath], with: .automatic)
                 orderTableView.endUpdates()
@@ -281,7 +296,7 @@ extension DefaultViewController: UITableViewDataSource, UITableViewDelegate, Ord
     }
     
         func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            return FirebaseCloudLogic.docID.count
+            return FirebaseCloudLogic.orderAray.count
         }
         
         func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -289,33 +304,29 @@ extension DefaultViewController: UITableViewDataSource, UITableViewDelegate, Ord
             cell.delegate = self
             cell.tag = indexPath.row
     
-            if let cachedData = FirebaseCloudLogic.dataCache.object(forKey: FirebaseCloudLogic.docID[indexPath.row] as NSString) {
-                if let image = cachedData as? UIImage {
-                    print("W komórce będzie zdjęcie")
-                    cell.configure(image: image, text: nil)
+            if let cachedImage = FirebaseCloudLogic.orderAray[indexPath.row].image {
+                let image = UIImage(data: cachedImage)
+                cell.configure(image: image, text: nil)
                 }
                 else {
-                    if let text = cachedData as? String {
-                        print("W komórce będzie tekst")
+                    if let text = FirebaseCloudLogic.orderAray[indexPath.row].text {
                         cell.configure(image: nil, text: text)
                     }
                 }
-            }
+            
             return cell
         }
         
-        func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-            if let cachedData = FirebaseCloudLogic.dataCache.object(forKey: FirebaseCloudLogic.docID[indexPath.row] as NSString) {
-                if cachedData is UIImage {
-                  return 300
-                }
-                else  {
-                    let automatic = UITableView.automaticDimension
-                    return automatic
-                }
-            }
-            return 30
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        if let cachedImage = FirebaseCloudLogic.orderAray[indexPath.row].image {
+            return 300
         }
+        else  {
+            let automatic = UITableView.automaticDimension
+            return automatic
+        }
+        }
+        
         
     func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let deleteCell = UIContextualAction(style: .destructive, title: "Usuń") { (action, sourceView, completionHandler) in
@@ -323,7 +334,7 @@ extension DefaultViewController: UITableViewDataSource, UITableViewDelegate, Ord
                 try? await self.firebaseCloudLogic.removeTextFromCloud(storeIndentifier: self.storeIndentifier, orderStatus: self.orderStatus, DocIDBeingModified: FirebaseCloudLogic.docID[indexPath.row])
             }
             FirebaseCloudLogic.docID.remove(at: indexPath.row)
-            FirebaseCloudLogic.dataCache.removeObject(forKey: FirebaseCloudLogic.docID[indexPath.row] as NSString)
+//            FirebaseCloudLogic.dataCache.removeObject(forKey: FirebaseCloudLogic.docID[indexPath.row] as NSString)
             FirebaseCloudLogic.docIDInCloud.remove(at: indexPath.row)
             
         }
