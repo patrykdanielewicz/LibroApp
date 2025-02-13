@@ -19,9 +19,9 @@
 ## 📸 Screenshots
 
 
-![Screenshot 1](path/to/Libro-Login-View.png)
-![Screenshot 2](path/to/Libro-Main-View.png)
-![Screenshot 2](path/to/Libro-Order-View.png)
+![Screenshot 1](Screenshots/Libro-Login-View.png)
+![Screenshot 2](Screenshots/Libro-Main-View.png)
+![Screenshot 2](Screenshots/Libro-Order-View.png)
 
 
 
